@@ -89,13 +89,7 @@ namespace TcmbImplementationStudy.BackGroundServices.XMLSerial
                         _logger.LogInformation($"{DateTime.Now:HH:mm:ss tt zz} : done.");
                         if (_flag)
                         {
-                            var currency = new Currency
-                            {
-                                Kod = "USD"
-                            };
-                            GetDailyChanges(currency);
                             Thread.Sleep((int)(tempDateTime - date).TotalMilliseconds);
-                            _flag = false;
                         }
                     }
                     catch (Exception e)
@@ -174,12 +168,13 @@ namespace TcmbImplementationStudy.BackGroundServices.XMLSerial
 
         private static void GetResultAllCurrencies(bool ascending)
         {
-            var tarihDateCurrencies = GetCurrencies(_tarihDate.Currency);
-            SortTarihDateCurrencies(tarihDateCurrencies, ascending);
+            var tarihDateCurrencies = GetCurrenciesList(_tarihDate.Currency);
+            SortCurrencies(tarihDateCurrencies, ascending);
+            AddDbAllCurrencies(tarihDateCurrencies);
             PrintCurrencies(tarihDateCurrencies);
         }
 
-        private static void SortTarihDateCurrencies(List<Tarih_DateCurrency> tarihDateCurrencies, bool ascending)
+        private static void SortCurrencies(List<Tarih_DateCurrency> tarihDateCurrencies, bool ascending)
         {
             if (ascending) tarihDateCurrencies.Sort();
             else
@@ -189,7 +184,7 @@ namespace TcmbImplementationStudy.BackGroundServices.XMLSerial
             }
         }
 
-        private static List<Tarih_DateCurrency> GetCurrencies(Tarih_DateCurrency[] arrayCurrencies)
+        private static List<Tarih_DateCurrency> GetCurrenciesList(Tarih_DateCurrency[] arrayCurrencies)
         {
             var tarihDateCurrencies = new List<Tarih_DateCurrency>();
             foreach (var element in arrayCurrencies)
@@ -232,6 +227,22 @@ namespace TcmbImplementationStudy.BackGroundServices.XMLSerial
         {
             foreach (var element in currencies)
             {
+                _logger.LogInformation($"TRY/{element.Kod} {element.ForexBuying}");
+            }
+        }
+
+        private void PrintCurrencies2(List<Currency> currencies)
+        {
+            foreach (var element in currencies)
+            {
+                _logger.LogInformation($"TRY/{element.Kod} {element.Tarih} {element.ForexBuying}");
+            }
+        }
+
+        private static async void AddDbAllCurrencies(List<Tarih_DateCurrency> currencies)
+        {
+            foreach (var element in currencies)
+            {
                 var currency = new Currency
                 {
                     Tarih = _tarihDate.Tarih,
@@ -239,12 +250,11 @@ namespace TcmbImplementationStudy.BackGroundServices.XMLSerial
                     Kod = element.Kod
                 };
                 AddAppDbContext(currency);
-                _appDbContext.SaveChanges();
-                _logger.LogInformation($"TRY/{element.Kod} {element.ForexBuying}");
+                await _appDbContext.SaveChangesAsync();
             }
         }
 
-        private static void AddAppDbContext(Currency currency)
+        private static async void AddAppDbContext(Currency currency)
         {
             foreach (var elemetCurrency in _appDbContext.Currencies)
             {
@@ -254,7 +264,7 @@ namespace TcmbImplementationStudy.BackGroundServices.XMLSerial
                     return;
                 }
             }
-            _appDbContext.Currencies.Add(currency);
+            await _appDbContext.Currencies.AddAsync(currency);
         }
 
         private static void HardDeleteAppDbContext(Currency currency)
@@ -262,15 +272,18 @@ namespace TcmbImplementationStudy.BackGroundServices.XMLSerial
             _appDbContext.Remove(currency);
         }
 
-        public static void GetDailyChanges(Currency currency)
+        public static List<Currency> GetDailyChanges(Currency currency)
         {
+            List<Currency> currencies = new List<Currency>();
             foreach (var elementCurrency in _appDbContext.Currencies)
             {
                 if (elementCurrency.Kod.Equals(currency.Kod))
                 {
-                    _logger.LogInformation($"TRY/{elementCurrency.Kod} {elementCurrency.Tarih} {elementCurrency.ForexBuying}");
+                    currencies.Add(elementCurrency);
+                    //_logger.LogInformation($"TRY/{elementCurrency.Kod} {elementCurrency.Tarih} {elementCurrency.ForexBuying}");
                 }
             }
+            return currencies;
         }
 
 
